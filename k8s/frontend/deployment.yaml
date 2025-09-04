@@ -1,0 +1,352 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: frontend
+  labels:
+    app: frontend
+    component: web-app
+    tier: frontend
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 2
+  selector:
+    matchLabels:
+      app: frontend
+      component: web-app
+  template:
+    metadata:
+      labels:
+        app: frontend
+        component: web-app
+        tier: frontend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: frontend-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101  # nginx user
+        fsGroup: 101
+      containers:
+      - name: frontend
+        # ⚠️ PLACEHOLDER IMAGE - Replace with actual frontend application image
+        image: nginx:1.25-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        env:
+        - name: APP_NAME
+          value: "atlas-micro-frontend"
+        - name: APP_VERSION
+          value: "v1.0.0"
+        - name: NODE_ENV
+          value: "production"
+        # API Gateway URLs
+        - name: API_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: frontend-config
+              key: api-base-url
+        - name: API_TIMEOUT
+          value: "30000"
+        # Feature flags
+        - name: ENABLE_ANALYTICS
+          value: "true"
+        - name: ENABLE_CHAT
+          value: "false"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10"]
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: app-config
+          mountPath: /usr/share/nginx/html/config
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: var-cache
+          mountPath: /var/cache/nginx
+        - name: var-run
+          mountPath: /var/run
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: frontend-nginx-config
+      - name: app-config
+        configMap:
+          name: frontend-config
+      - name: tmp
+        emptyDir: {}
+      - name: var-cache
+        emptyDir: {}
+      - name: var-run
+        emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - frontend
+              topologyKey: kubernetes.io/hostname
+      tolerations:
+      - key: "tier"
+        operator: "Equal"
+        value: "frontend"
+        effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: frontend
+  labels:
+    app: frontend
+    component: web-app
+    tier: frontend
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: frontend
+    component: web-app
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: frontend-service-account
+  namespace: frontend
+  labels:
+    app: frontend
+    component: web-app
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+  annotations:
+    # IRSA annotation for AWS IAM role (if needed for S3 access, etc.)
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/atlas-micro-frontend-role
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: frontend
+  labels:
+    app: frontend
+    component: web-app
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+data:
+  api-base-url: "https://api.atlas-micro.example.com"
+  app-title: "Atlas Micro Platform"
+  app-description: "Modern Microservices Platform"
+  analytics-enabled: "true"
+  chat-enabled: "false"
+  theme: "light"
+  environment: "production"
+  
+  # Application configuration as JSON
+  app.json: |
+    {
+      "name": "Atlas Micro Frontend",
+      "version": "1.0.0",
+      "api": {
+        "baseUrl": "https://api.atlas-micro.example.com",
+        "timeout": 30000,
+        "retryAttempts": 3
+      },
+      "features": {
+        "analytics": true,
+        "chat": false,
+        "notifications": true,
+        "darkMode": true
+      },
+      "routes": {
+        "users": "/api/v1/users",
+        "orders": "/api/v1/orders",
+        "products": "/api/v1/products",
+        "payments": "/api/v1/payments",
+        "inventory": "/api/v1/inventory",
+        "notifications": "/api/v1/notifications",
+        "analytics": "/api/v1/analytics",
+        "search": "/api/v1/search",
+        "recommendations": "/api/v1/recommendations",
+        "reports": "/api/v1/reports"
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx-config
+  namespace: frontend
+  labels:
+    app: frontend
+    component: web-app
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+    error_log /var/log/nginx/error.log notice;
+    pid /var/run/nginx.pid;
+    
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+        
+        access_log /var/log/nginx/access.log main;
+        
+        sendfile on;
+        tcp_nopush on;
+        keepalive_timeout 65;
+        gzip on;
+        gzip_vary on;
+        gzip_min_length 1024;
+        gzip_proxied any;
+        gzip_types
+            text/plain
+            text/css
+            text/xml
+            text/javascript
+            application/javascript
+            application/xml+rss
+            application/json;
+        
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "no-referrer-when-downgrade" always;
+        add_header Content-Security-Policy "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval';" always;
+        
+        # API proxy configuration
+        upstream api_backend {
+            server api.atlas-micro.example.com:443;
+        }
+        
+        server {
+            listen 80;
+            server_name _;
+            root /usr/share/nginx/html;
+            index index.html index.htm;
+            
+            # Health check endpoint
+            location /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+            
+            # Static assets with caching
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+                try_files $uri =404;
+            }
+            
+            # API proxy
+            location /api/ {
+                proxy_pass https://api_backend;
+                proxy_set_header Host $http_host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_connect_timeout 30s;
+                proxy_read_timeout 30s;
+                proxy_send_timeout 30s;
+                
+                # Handle preflight CORS requests
+                if ($request_method = 'OPTIONS') {
+                    add_header 'Access-Control-Allow-Origin' '*';
+                    add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS';
+                    add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+                    add_header 'Access-Control-Max-Age' 1728000;
+                    add_header 'Content-Type' 'text/plain; charset=utf-8';
+                    add_header 'Content-Length' 0;
+                    return 204;
+                }
+            }
+            
+            # Single Page Application routing
+            location / {
+                try_files $uri $uri/ /index.html;
+            }
+            
+            # Error pages
+            error_page 404 /index.html;
+            error_page 500 502 503 504 /50x.html;
+            location = /50x.html {
+                root /usr/share/nginx/html;
+            }
+        }
+    }

@@ -1,0 +1,212 @@
+# Default values for api-generic-chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  project: atlas-micro
+  environment: dev
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Service configuration
+service:
+  name: ""  # Will be set in individual values files
+  description: ""  # Will be set in individual values files
+  version: "v1.0.0"
+  port: 8080
+  targetPort: 8080
+  metricsPort: 9090
+
+# Image configuration
+image:
+  repository: nginx  # Placeholder - replace with actual image
+  pullPolicy: IfNotPresent
+  tag: "1.25-alpine"
+
+# Deployment configuration
+replicaCount: 3
+
+# Update strategy
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 1
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Auto-scaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  # IRSA role ARN for AWS
+  roleArn: ""
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  capabilities:
+    drop:
+    - ALL
+
+# Health checks
+healthChecks:
+  livenessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Service configuration
+serviceType: ClusterIP
+
+# Database configuration
+database:
+  enabled: true
+  host: ""  # Will be populated from secret
+  port: 5432
+  name: atlasdb
+  secretName: postgres-credentials
+
+# Redis configuration
+redis:
+  enabled: true
+  host: ""  # Will be populated from configmap
+  port: 6379
+  timeout: 2000
+  configMapName: redis-config
+
+# Kafka configuration
+kafka:
+  enabled: true
+  brokers: ""  # Will be populated from configmap
+  groupIdPrefix: "atlas-micro"
+  configMapName: kafka-config
+
+# Environment variables
+env:
+  APP_VERSION: "v1.0.0"
+  LOG_LEVEL: "INFO"
+  METRICS_ENABLED: "true"
+
+# Config map data
+config:
+  data: {}
+
+# Node selector, tolerations and affinity
+nodeSelector: {}
+
+tolerations:
+  - key: "app"
+    operator: "Equal"
+    value: "api"
+    effect: "NoSchedule"
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - "{{ include \"api-generic-chart.name\" . }}"
+        topologyKey: kubernetes.io/hostname
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  prometheus:
+    scrape: true
+    port: 9090
+    path: /metrics
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Volumes and volume mounts
+volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: logs
+    emptyDir: {}
+
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: logs
+    mountPath: /app/logs
+
+# Network policies
+networkPolicy:
+  enabled: false
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Labels and annotations
+labels: {}
+annotations: {}
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
+
+# Namespace
+namespace: services

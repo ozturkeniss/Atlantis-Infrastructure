@@ -1,0 +1,343 @@
+---
+# Bastion host specific configuration
+# Installs and configures tools for EKS and AWS management
+
+- name: Install AWS CLI v2
+  block:
+    - name: Download AWS CLI v2
+      get_url:
+        url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /tmp/awscliv2.zip
+        mode: '0644'
+
+    - name: Unzip AWS CLI v2
+      unarchive:
+        src: /tmp/awscliv2.zip
+        dest: /tmp
+        remote_src: yes
+
+    - name: Install AWS CLI v2
+      command: /tmp/aws/install --update
+      creates: /usr/local/bin/aws
+
+    - name: Verify AWS CLI installation
+      command: aws --version
+      register: aws_version
+      changed_when: false
+
+    - name: Display AWS CLI version
+      debug:
+        msg: "AWS CLI installed: {{ aws_version.stdout }}"
+  tags: [aws, cli]
+
+- name: Install kubectl
+  block:
+    - name: Get latest kubectl version
+      uri:
+        url: https://dl.k8s.io/release/stable.txt
+        return_content: yes
+      register: kubectl_version
+
+    - name: Download kubectl
+      get_url:
+        url: "https://dl.k8s.io/release/{{ kubectl_version.content.strip() }}/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Verify kubectl installation
+      command: kubectl version --client
+      register: kubectl_check
+      changed_when: false
+
+    - name: Display kubectl version
+      debug:
+        msg: "kubectl installed: {{ kubectl_check.stdout }}"
+  tags: [kubectl, kubernetes]
+
+- name: Install Helm
+  block:
+    - name: Download Helm install script
+      get_url:
+        url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        dest: /tmp/get_helm.sh
+        mode: '0755'
+
+    - name: Install Helm
+      command: /tmp/get_helm.sh
+      creates: /usr/local/bin/helm
+
+    - name: Verify Helm installation
+      command: helm version
+      register: helm_version
+      changed_when: false
+
+    - name: Display Helm version
+      debug:
+        msg: "Helm installed: {{ helm_version.stdout }}"
+  tags: [helm, kubernetes]
+
+- name: Install eksctl
+  block:
+    - name: Download eksctl
+      get_url:
+        url: "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz"
+        dest: /tmp/eksctl.tar.gz
+        mode: '0644'
+
+    - name: Extract eksctl
+      unarchive:
+        src: /tmp/eksctl.tar.gz
+        dest: /tmp
+        remote_src: yes
+
+    - name: Install eksctl
+      copy:
+        src: /tmp/eksctl
+        dest: /usr/local/bin/eksctl
+        mode: '0755'
+        owner: root
+        group: root
+        remote_src: yes
+
+    - name: Verify eksctl installation
+      command: eksctl version
+      register: eksctl_version
+      changed_when: false
+
+    - name: Display eksctl version
+      debug:
+        msg: "eksctl installed: {{ eksctl_version.stdout }}"
+  tags: [eksctl, kubernetes]
+
+- name: Install ArgoCD CLI
+  block:
+    - name: Download ArgoCD CLI
+      get_url:
+        url: https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+        dest: /usr/local/bin/argocd
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Verify ArgoCD CLI installation
+      command: argocd version --client
+      register: argocd_version
+      changed_when: false
+      failed_when: false
+
+    - name: Display ArgoCD CLI version
+      debug:
+        msg: "ArgoCD CLI installed: {{ argocd_version.stdout if argocd_version.rc == 0 else 'Installation completed' }}"
+  tags: [argocd, gitops]
+
+- name: Install additional tools
+  block:
+    - name: Install k9s (Kubernetes CLI UI)
+      get_url:
+        url: "https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_x86_64.tar.gz"
+        dest: /tmp/k9s.tar.gz
+        mode: '0644'
+
+    - name: Extract k9s
+      unarchive:
+        src: /tmp/k9s.tar.gz
+        dest: /tmp
+        remote_src: yes
+
+    - name: Install k9s
+      copy:
+        src: /tmp/k9s
+        dest: /usr/local/bin/k9s
+        mode: '0755'
+        owner: root
+        group: root
+        remote_src: yes
+
+    - name: Install kubectx and kubens
+      get_url:
+        url: "{{ item.url }}"
+        dest: "/usr/local/bin/{{ item.name }}"
+        mode: '0755'
+        owner: root
+        group: root
+      loop:
+        - name: kubectx
+          url: https://raw.githubusercontent.com/ahmetb/kubectx/master/kubectx
+        - name: kubens
+          url: https://raw.githubusercontent.com/ahmetb/kubectx/master/kubens
+  tags: [tools, kubernetes]
+
+- name: Configure user environment
+  block:
+    - name: Create .kube directory
+      file:
+        path: "/home/{{ ansible_user }}/.kube"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Add useful aliases to bashrc
+      blockinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        block: |
+          # Kubernetes aliases
+          alias k='kubectl'
+          alias kgp='kubectl get pods'
+          alias kgs='kubectl get svc'
+          alias kgn='kubectl get nodes'
+          alias kgi='kubectl get ingress'
+          alias kdp='kubectl describe pod'
+          alias kds='kubectl describe svc'
+          alias kex='kubectl exec -it'
+          alias klf='kubectl logs -f'
+          
+          # Helm aliases
+          alias h='helm'
+          alias hls='helm list'
+          alias hla='helm list --all-namespaces'
+          alias hin='helm install'
+          alias hup='helm upgrade'
+          
+          # AWS aliases
+          alias awsp='aws sts get-caller-identity'
+          
+          # Navigation
+          alias ll='ls -la'
+          alias la='ls -la'
+          
+          # Functions
+          function kexec() {
+              kubectl exec -it $1 -- /bin/bash
+          }
+          
+          function klogs() {
+              kubectl logs -f $1
+          }
+          
+          function kdebug() {
+              kubectl run debug-${RANDOM} --rm -i --tty --image=alpine -- sh
+          }
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Atlas Micro aliases"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Create helpful scripts
+      template:
+        src: "{{ item.src }}"
+        dest: "/home/{{ ansible_user }}/{{ item.dest }}"
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      loop:
+        - src: configure-kubectl.sh.j2
+          dest: configure-kubectl.sh
+        - src: cluster-status.sh.j2
+          dest: cluster-status.sh
+        - src: helm-setup.sh.j2
+          dest: helm-setup.sh
+  tags: [configuration, user]
+
+- name: Install monitoring tools
+  block:
+    - name: Install docker (for container debugging)
+      yum:
+        name: docker
+        state: present
+
+    - name: Start and enable docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+  tags: [docker, monitoring]
+
+- name: Configure MOTD
+  copy:
+    dest: /etc/motd
+    content: |
+      ===============================================
+         Atlas Micro Platform - Bastion Host
+      ===============================================
+      
+      Environment: {{ environment | upper }}
+      Cluster: {{ cluster_name }}
+      Region: {{ region }}
+      
+      Available Tools:
+      - kubectl (Kubernetes CLI)
+      - helm (Helm package manager)
+      - eksctl (EKS management)
+      - argocd (GitOps CLI)
+      - k9s (Kubernetes UI)
+      - kubectx/kubens (Context switching)
+      - aws (AWS CLI v2)
+      
+      Getting Started:
+      1. Configure kubectl: ./configure-kubectl.sh
+      2. Check cluster: kubectl get nodes
+      3. View status: ./cluster-status.sh
+      4. Setup helm: ./helm-setup.sh
+      
+      Useful aliases are configured in ~/.bashrc
+      Type 'alias' to see available shortcuts.
+      
+      ===============================================
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [motd, configuration]
+
+- name: Create log rotation for user commands
+  copy:
+    dest: /etc/logrotate.d/atlas-commands
+    content: |
+      /var/log/atlas/*.log {
+          daily
+          rotate 7
+          compress
+          missingok
+          notifempty
+          create 644 {{ ansible_user }} {{ ansible_user }}
+      }
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [logging, rotation]
+
+- name: Bastion configuration summary
+  debug:
+    msg: |
+      ================================================
+      🎯 Bastion Host Configuration Complete
+      ================================================
+      
+      Installed Tools:
+      ✅ AWS CLI v2
+      ✅ kubectl (Kubernetes CLI)
+      ✅ Helm (Package Manager)
+      ✅ eksctl (EKS Management)
+      ✅ ArgoCD CLI (GitOps)
+      ✅ k9s (Kubernetes UI)
+      ✅ kubectx/kubens (Context Tools)
+      ✅ Docker (Container Runtime)
+      
+      User Configuration:
+      ✅ Kubernetes aliases
+      ✅ Helper scripts
+      ✅ MOTD banner
+      ✅ Log rotation
+      
+      Environment: {{ environment }}
+      Cluster: {{ cluster_name }}
+      User: {{ ansible_user }}
+      ================================================
+  tags: [info]

@@ -1,0 +1,197 @@
+---
+# Common tasks for all hosts
+# Basic system configuration and essential packages
+
+- name: Update system packages
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+  when: ansible_os_family == "RedHat"
+  tags: [packages, update]
+
+- name: Install EPEL repository
+  yum:
+    name: epel-release
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [packages, repos]
+
+- name: Install essential packages
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - curl
+    - wget
+    - unzip
+    - git
+    - vim
+    - htop
+    - tree
+    - jq
+    - yum-utils
+    - device-mapper-persistent-data
+    - lvm2
+    - policycoreutils-python-utils
+  tags: [packages, essential]
+
+- name: Configure timezone
+  timezone:
+    name: "{{ timezone | default('UTC') }}"
+  tags: [system, timezone]
+
+- name: Configure NTP
+  block:
+    - name: Install chrony
+      package:
+        name: chrony
+        state: present
+
+    - name: Start and enable chronyd
+      service:
+        name: chronyd
+        state: started
+        enabled: yes
+
+    - name: Configure chrony
+      lineinfile:
+        path: /etc/chrony.conf
+        regexp: '^pool'
+        line: 'pool 169.254.169.123 iburst'
+        backup: yes
+      notify: restart chronyd
+  tags: [system, ntp]
+
+# Security hardening (basic)
+- name: Security hardening
+  block:
+    - name: Install fail2ban
+      package:
+        name: fail2ban
+        state: present
+      tags: [security, fail2ban]
+
+    - name: Configure fail2ban
+      copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          bantime = 600
+          findtime = 600
+          maxretry = 3
+          
+          [sshd]
+          enabled = true
+          port = ssh
+          logpath = /var/log/secure
+          maxretry = 3
+      notify: restart fail2ban
+      tags: [security, fail2ban]
+
+    - name: Start and enable fail2ban
+      service:
+        name: fail2ban
+        state: started
+        enabled: yes
+      tags: [security, fail2ban]
+
+    - name: Disable root login via SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+        backup: yes
+      notify: restart sshd
+      tags: [security, ssh]
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        backup: yes
+      notify: restart sshd
+      tags: [security, ssh]
+
+- name: Configure system limits
+  pam_limits:
+    domain: '*'
+    limit_type: "{{ item.type }}"
+    limit_item: "{{ item.item }}"
+    value: "{{ item.value }}"
+  loop:
+    - { type: 'soft', item: 'nofile', value: '65536' }
+    - { type: 'hard', item: 'nofile', value: '65536' }
+    - { type: 'soft', item: 'nproc', value: '32768' }
+    - { type: 'hard', item: 'nproc', value: '32768' }
+  tags: [system, limits]
+
+- name: Configure kernel parameters
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: 'net.core.somaxconn', value: '65535' }
+    - { name: 'net.ipv4.tcp_max_syn_backlog', value: '65535' }
+    - { name: 'net.core.netdev_max_backlog', value: '5000' }
+    - { name: 'vm.swappiness', value: '10' }
+  tags: [system, kernel]
+
+- name: Create logs directory
+  file:
+    path: /var/log/atlas
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags: [system, logging]
+
+- name: Install CloudWatch agent (placeholder)
+  debug:
+    msg: |
+      CloudWatch agent installation would happen here:
+      wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+      rpm -U ./amazon-cloudwatch-agent.rpm
+  tags: [monitoring, cloudwatch]
+
+- name: System information summary
+  debug:
+    msg: |
+      ================================================
+      Common System Configuration Complete
+      ================================================
+      Host: {{ inventory_hostname }}
+      OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+      Kernel: {{ ansible_kernel }}
+      
+      Installed:
+      - Essential packages (curl, wget, git, vim, etc.)
+      - Security tools (fail2ban)
+      - System monitoring (htop, etc.)
+      - Time synchronization (chrony)
+      
+      Security:
+      - SSH hardening applied
+      - System limits configured
+      - Kernel parameters tuned
+      ================================================
+  tags: [info]
+
+# Handlers
+- name: restart chronyd
+  service:
+    name: chronyd
+    state: restarted
+
+- name: restart fail2ban
+  service:
+    name: fail2ban
+    state: restarted
+
+- name: restart sshd
+  service:
+    name: sshd
+    state: restarted

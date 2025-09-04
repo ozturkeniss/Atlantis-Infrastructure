@@ -1,0 +1,227 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atlas-micro-ingress
+  namespace: services
+  labels:
+    app.kubernetes.io/name: atlas-micro-ingress
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "platform"
+  annotations:
+    # AWS Load Balancer Controller annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Health check configuration
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+    
+    # SSL Configuration
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-1:ACCOUNT:certificate/CERT-ID
+    
+    # Security
+    alb.ingress.kubernetes.io/security-groups: atlas-micro-alb-sg
+    # alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:eu-west-1:ACCOUNT:regional/webacl/NAME/ID
+    
+    # Load balancer attributes
+    alb.ingress.kubernetes.io/load-balancer-attributes: |
+      idle_timeout.timeout_seconds=60,
+      routing.http2.enabled=true,
+      access_logs.s3.enabled=true,
+      access_logs.s3.bucket=atlas-micro-alb-logs,
+      access_logs.s3.prefix=access-logs
+    
+    # Tagging
+    alb.ingress.kubernetes.io/tags: |
+      Environment=dev,
+      Project=atlas-micro,
+      ManagedBy=kubernetes
+spec:
+  rules:
+  # Main API endpoints
+  - host: api.atlas-micro.example.com
+    http:
+      paths:
+      # User management API
+      - path: /api/v1/users
+        pathType: Prefix
+        backend:
+          service:
+            name: api-01-service
+            port:
+              number: 8080
+      
+      # Order management API
+      - path: /api/v1/orders
+        pathType: Prefix
+        backend:
+          service:
+            name: api-02-service
+            port:
+              number: 8080
+      
+      # Product catalog API
+      - path: /api/v1/products
+        pathType: Prefix
+        backend:
+          service:
+            name: api-03-service
+            port:
+              number: 8080
+      
+      # Payment processing API
+      - path: /api/v1/payments
+        pathType: Prefix
+        backend:
+          service:
+            name: api-04-service
+            port:
+              number: 8080
+      
+      # Inventory management API
+      - path: /api/v1/inventory
+        pathType: Prefix
+        backend:
+          service:
+            name: api-05-service
+            port:
+              number: 8080
+      
+      # Notification service API
+      - path: /api/v1/notifications
+        pathType: Prefix
+        backend:
+          service:
+            name: api-06-service
+            port:
+              number: 8080
+      
+      # Analytics service API
+      - path: /api/v1/analytics
+        pathType: Prefix
+        backend:
+          service:
+            name: api-07-service
+            port:
+              number: 8080
+      
+      # Search service API
+      - path: /api/v1/search
+        pathType: Prefix
+        backend:
+          service:
+            name: api-08-service
+            port:
+              number: 8080
+      
+      # Recommendation engine API
+      - path: /api/v1/recommendations
+        pathType: Prefix
+        backend:
+          service:
+            name: api-09-service
+            port:
+              number: 8080
+      
+      # Reporting service API
+      - path: /api/v1/reports
+        pathType: Prefix
+        backend:
+          service:
+            name: api-10-service
+            port:
+              number: 8080
+
+  # Frontend applications
+  - host: app.atlas-micro.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+
+  # Admin portal
+  - host: admin.atlas-micro.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-portal-service
+            port:
+              number: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atlas-micro-monitoring-ingress
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: atlas-micro-monitoring-ingress
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "platform"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Authentication for monitoring endpoints
+    alb.ingress.kubernetes.io/auth-type: cognito
+    # alb.ingress.kubernetes.io/auth-idp-cognito: '{"userPoolArn":"arn:aws:cognito-idp:region:account:userpool/pool-id","userPoolClientId":"client-id","userPoolDomain":"domain"}'
+    
+    alb.ingress.kubernetes.io/tags: |
+      Environment=dev,
+      Project=atlas-micro,
+      ManagedBy=kubernetes,
+      Access=internal
+spec:
+  rules:
+  # Prometheus
+  - host: prometheus.atlas-micro.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: prometheus-server
+            port:
+              number: 9090
+
+  # Grafana
+  - host: grafana.atlas-micro.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
+
+  # ArgoCD
+  - host: argocd.atlas-micro.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argocd-server
+            port:
+              number: 80

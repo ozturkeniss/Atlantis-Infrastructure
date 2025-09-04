@@ -1,0 +1,49 @@
+apiVersion: v2
+name: api-generic-chart
+description: A generic Helm chart for Atlas Micro API services
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - microservice
+  - api
+  - atlas-micro
+  - backend
+
+home: https://github.com/atlas-micro/platform
+sources:
+  - https://github.com/atlas-micro/platform
+
+maintainers:
+  - name: Platform Team
+    email: platform-team@company.com
+
+annotations:
+  category: Microservices
+  platform.atlas-micro.io/service-template: "api"
+  
+dependencies: []
+
+# Chart documentation
+description: |
+  This is a generic Helm chart designed to deploy API microservices
+  in the Atlas Micro platform. It provides common patterns and
+  configurations that can be customized via values files.
+  
+  Features:
+  - Deployment with configurable replicas
+  - Service with ClusterIP/LoadBalancer options
+  - ConfigMap for application configuration
+  - Secret management integration
+  - Health checks and probes
+  - Resource limits and requests
+  - Horizontal Pod Autoscaler (optional)
+  - Service Monitor for Prometheus (optional)
+  - Ingress configuration (optional)
+  - RBAC and Service Account
+  - Pod Security Context
+  - Anti-affinity rules for HA
+
+# Minimum Kubernetes version
+kubeVersion: ">=1.20.0"

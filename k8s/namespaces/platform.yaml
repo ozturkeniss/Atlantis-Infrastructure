@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform
+  labels:
+    name: platform
+    tier: infrastructure
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "platform"
+  annotations:
+    description: "Platform infrastructure services like Kafka, Redis, databases"
+    contact: "platform-team@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    tier: infrastructure
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "platform"
+  annotations:
+    description: "Monitoring and observability stack (Prometheus, Grafana)"
+    contact: "platform-team@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    name: argocd
+    tier: infrastructure
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "platform"
+  annotations:
+    description: "GitOps deployment with ArgoCD"
+    contact: "platform-team@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    name: ingress-nginx
+    tier: infrastructure
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "platform"
+  annotations:
+    description: "NGINX Ingress Controller"
+    contact: "platform-team@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    name: cert-manager
+    tier: infrastructure
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "platform"
+  annotations:
+    description: "Certificate management"
+    contact: "platform-team@company.com"

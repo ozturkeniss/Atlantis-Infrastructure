@@ -1,0 +1,207 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-01-service
+  namespace: services
+  labels:
+    app: api-01
+    service: user-management
+    tier: backend
+    app.kubernetes.io/name: api-01
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: api-01
+    version: v1
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api-01-service-account
+  namespace: services
+  labels:
+    app: api-01
+    service: user-management
+    app.kubernetes.io/name: api-01
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+  annotations:
+    # IRSA annotation for AWS IAM role
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/atlas-micro-api-01-role
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-01-config
+  namespace: services
+  labels:
+    app: api-01
+    service: user-management
+    app.kubernetes.io/name: api-01
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+data:
+  app.properties: |
+    # API-01 User Management Service Configuration
+    app.name=api-01
+    app.version=v1.0.0
+    service.name=user-management
+    
+    # Server Configuration
+    server.port=8080
+    server.shutdown=graceful
+    
+    # Database Configuration
+    spring.datasource.hikari.maximum-pool-size=20
+    spring.datasource.hikari.minimum-idle=5
+    spring.datasource.hikari.connection-timeout=30000
+    spring.datasource.hikari.idle-timeout=600000
+    spring.datasource.hikari.max-lifetime=1800000
+    
+    # JPA Configuration
+    spring.jpa.hibernate.ddl-auto=validate
+    spring.jpa.show-sql=false
+    spring.jpa.properties.hibernate.format_sql=false
+    
+    # Redis Configuration
+    spring.redis.timeout=2000ms
+    spring.redis.lettuce.pool.max-active=8
+    spring.redis.lettuce.pool.max-idle=8
+    spring.redis.lettuce.pool.min-idle=0
+    
+    # Kafka Configuration
+    spring.kafka.producer.batch-size=16384
+    spring.kafka.producer.linger-ms=5
+    spring.kafka.producer.buffer-memory=33554432
+    spring.kafka.consumer.group-id=api-01-user-events
+    spring.kafka.consumer.auto-offset-reset=earliest
+    
+    # Logging Configuration
+    logging.level.com.atlasmicro.api01=INFO
+    logging.level.org.springframework.web=WARN
+    logging.pattern.console=%d{HH:mm:ss.SSS} [%thread] %-5level [%X{traceId},%X{spanId}] %logger{36} - %msg%n
+    
+    # Health Check Configuration
+    management.endpoint.health.show-details=always
+    management.endpoints.web.exposure.include=health,info,metrics,prometheus
+    management.metrics.export.prometheus.enabled=true
+  
+  nginx.conf: |
+    # NGINX configuration for API-01 (if using NGINX as reverse proxy)
+    upstream api-01-backend {
+        server localhost:8080;
+    }
+    
+    server {
+        listen 80;
+        server_name _;
+        
+        location /health {
+            proxy_pass http://api-01-backend/health;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 10s;
+        }
+        
+        location /ready {
+            proxy_pass http://api-01-backend/ready;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 10s;
+        }
+        
+        location /metrics {
+            proxy_pass http://api-01-backend/metrics;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+        
+        location / {
+            proxy_pass http://api-01-backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 30s;
+            proxy_read_timeout 30s;
+            proxy_send_timeout 30s;
+        }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-credentials
+  namespace: services
+  labels:
+    app: atlas-micro
+    component: database
+    app.kubernetes.io/name: postgres-credentials
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+type: Opaque
+data:
+  # ⚠️ PLACEHOLDER VALUES - In production, use AWS Secrets Manager or External Secrets Operator
+  host: YXRsYXMtbWljcm8tZGV2LXBvc3RncmVzLmN1c3RvbS5ldS13ZXN0LTEucmRzLmFtYXpvbmF3cy5jb20=  # base64 encoded hostname
+  port: NTQzMg==  # base64 encoded 5432
+  database: YXRsYXNkYg==  # base64 encoded atlasdb
+  username: YXRsYXNfdXNlcg==  # base64 encoded atlas_user
+  password: c3VwZXJfc2VjcmV0X3Bhc3N3b3Jk  # base64 encoded super_secret_password
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: services
+  labels:
+    app: atlas-micro
+    component: cache
+    app.kubernetes.io/name: redis-config
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+data:
+  host: "atlas-micro-dev-redis.cache.amazonaws.com"
+  port: "6379"
+  timeout: "2000"
+  max-connections: "10"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+  namespace: services
+  labels:
+    app: atlas-micro
+    component: messaging
+    app.kubernetes.io/name: kafka-config
+    app.kubernetes.io/part-of: atlas-micro
+    app.kubernetes.io/managed-by: kubernetes
+data:
+  brokers: "atlas-micro-dev-msk-1.kafka.eu-west-1.amazonaws.com:9094,atlas-micro-dev-msk-2.kafka.eu-west-1.amazonaws.com:9094"
+  security-protocol: "SSL"
+  group-id-prefix: "atlas-micro"

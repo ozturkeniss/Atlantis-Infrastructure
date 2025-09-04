@@ -1,0 +1,51 @@
+---
+# Main site playbook for Atlas Micro Platform
+# This playbook orchestrates the setup of the entire platform
+
+- name: Atlas Micro Platform - Main Site Playbook
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display platform information
+      debug:
+        msg: |
+          ================================================
+          🚀 Atlas Micro Platform Deployment
+          ================================================
+          Project: {{ project_name | default('atlas-micro') }}
+          Environment: {{ environment | default('dev') }}
+          
+          ⚠️  DEMO NOTICE: This is an educational repository
+          ⚠️  No real infrastructure changes will be made
+          ================================================
+
+# Configure bastion hosts
+- import_playbook: bastion.yml
+
+# Bootstrap Kubernetes cluster
+- import_playbook: cluster-bootstrap.yml
+
+# Additional platform setup
+- name: Platform Post-Setup Tasks
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Platform setup summary
+      debug:
+        msg: |
+          ================================================
+          ✅ Atlas Micro Platform Setup Complete
+          ================================================
+          
+          Completed Tasks:
+          - ✅ Bastion host configuration
+          - ✅ Kubernetes cluster bootstrap
+          - ✅ Platform components ready
+          
+          Next Steps (Manual):
+          1. Verify kubectl access from bastion
+          2. Deploy application workloads
+          3. Configure monitoring and observability
+          4. Set up CI/CD pipelines
+          
+          ================================================

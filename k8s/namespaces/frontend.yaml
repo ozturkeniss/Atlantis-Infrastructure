@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+  labels:
+    name: frontend
+    tier: presentation
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "frontend"
+  annotations:
+    description: "Frontend applications and web interfaces"
+    contact: "frontend-team@company.com"
+---
+# Additional frontend namespaces for different environments or applications
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: web-portal
+  labels:
+    name: web-portal
+    tier: presentation
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "frontend"
+  annotations:
+    description: "Main web portal application"
+    contact: "frontend-team@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: admin-portal
+  labels:
+    name: admin-portal
+    tier: presentation
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "frontend"
+  annotations:
+    description: "Administrative portal for internal users"
+    contact: "frontend-team@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mobile-api-gateway
+  labels:
+    name: mobile-api-gateway
+    tier: presentation
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "frontend"
+  annotations:
+    description: "API Gateway for mobile applications"
+    contact: "mobile-team@company.com"

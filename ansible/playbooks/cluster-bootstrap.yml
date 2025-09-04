@@ -1,0 +1,183 @@
+---
+# Kubernetes Cluster Bootstrap Playbook
+# Sets up essential cluster components and platform services
+
+- name: Bootstrap Kubernetes Cluster
+  hosts: bastion
+  become: false
+  gather_facts: false
+
+  vars:
+    # Helm chart repositories
+    helm_repos:
+      - name: eks
+        url: https://aws.github.io/eks-charts
+      - name: external-dns
+        url: https://kubernetes-sigs.github.io/external-dns/
+      - name: prometheus-community
+        url: https://prometheus-community.github.io/helm-charts
+      - name: grafana
+        url: https://grafana.github.io/helm-charts
+      - name: argo
+        url: https://argoproj.github.io/argo-helm
+      - name: ingress-nginx
+        url: https://kubernetes.github.io/ingress-nginx
+
+    # Platform components to install
+    platform_components:
+      - name: aws-load-balancer-controller
+        namespace: kube-system
+        chart: eks/aws-load-balancer-controller
+        enabled: true
+      - name: external-dns
+        namespace: kube-system
+        chart: external-dns/external-dns
+        enabled: false  # Requires Route53 configuration
+      - name: cluster-autoscaler
+        namespace: kube-system
+        chart: autoscaler/cluster-autoscaler
+        enabled: true
+      - name: prometheus
+        namespace: monitoring
+        chart: prometheus-community/kube-prometheus-stack
+        enabled: false  # Optional monitoring
+      - name: argocd
+        namespace: argocd
+        chart: argo/argo-cd
+        enabled: false  # Optional GitOps
+
+  tasks:
+    - name: Cluster bootstrap information
+      debug:
+        msg: |
+          ================================================
+          🚀 Kubernetes Cluster Bootstrap
+          ================================================
+          Cluster: {{ cluster_name }}
+          Environment: {{ environment }}
+          
+          ⚠️  DEMO NOTICE:
+          This playbook contains example commands for
+          cluster bootstrap. In a real environment,
+          these would be executed after proper setup.
+          ================================================
+
+    # Note: In a real environment, we would first verify cluster connectivity
+    - name: Verify cluster connectivity (DEMO)
+      debug:
+        msg: |
+          Command that would be run:
+          kubectl get nodes
+          kubectl get namespaces
+
+    - name: Add Helm repositories (DEMO)
+      debug:
+        msg: |
+          Helm repositories that would be added:
+          {% for repo in helm_repos %}
+          helm repo add {{ repo.name }} {{ repo.url }}
+          {% endfor %}
+          helm repo update
+
+    - name: Create platform namespaces (DEMO)
+      debug:
+        msg: |
+          Namespaces that would be created:
+          kubectl create namespace monitoring
+          kubectl create namespace argocd
+          kubectl create namespace platform
+          kubectl create namespace services
+          kubectl create namespace frontend
+
+    - name: Install AWS Load Balancer Controller (DEMO)
+      debug:
+        msg: |
+          Commands that would install AWS Load Balancer Controller:
+          
+          helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            --set clusterName={{ cluster_name }} \
+            --set serviceAccount.create=false \
+            --set serviceAccount.name=aws-load-balancer-controller \
+            --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=ROLE_ARN \
+            -n kube-system
+
+    - name: Install Cluster Autoscaler (DEMO)
+      debug:
+        msg: |
+          Commands that would install Cluster Autoscaler:
+          
+          helm install cluster-autoscaler autoscaler/cluster-autoscaler \
+            --set autoDiscovery.clusterName={{ cluster_name }} \
+            --set awsRegion={{ region }} \
+            --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=ROLE_ARN \
+            -n kube-system
+
+    - name: Install Prometheus Stack (DEMO)
+      debug:
+        msg: |
+          Commands that would install Prometheus monitoring:
+          
+          helm install prometheus prometheus-community/kube-prometheus-stack \
+            --create-namespace \
+            --namespace monitoring \
+            --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName=gp3 \
+            --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi
+
+    - name: Install ArgoCD (DEMO)
+      debug:
+        msg: |
+          Commands that would install ArgoCD:
+          
+          helm install argocd argo/argo-cd \
+            --create-namespace \
+            --namespace argocd \
+            --set server.service.type=LoadBalancer
+
+    - name: Configure platform ingress (DEMO)
+      debug:
+        msg: |
+          Platform ingress configuration that would be applied:
+          
+          kubectl apply -f k8s/ingress/ingress.yaml
+          kubectl apply -f k8s/namespaces/
+
+    - name: Deploy application manifests (DEMO)
+      debug:
+        msg: |
+          Application deployment commands:
+          
+          # Deploy API services
+          for i in {01..10}; do
+            helm install api-$i helm/api-generic-chart/ \
+              -f helm/api-generic-chart/values-api-$i.yaml \
+              -n services
+          done
+          
+          # Deploy frontend
+          kubectl apply -f k8s/frontend/ -n frontend
+
+    - name: Bootstrap completion summary
+      debug:
+        msg: |
+          ================================================
+          ✅ Cluster Bootstrap Summary
+          ================================================
+          
+          Platform Components (Demo Commands):
+          {% for component in platform_components %}
+          {{ '✅' if component.enabled else '⏸️' }} {{ component.name }}
+          {% endfor %}
+          
+          Next Steps:
+          1. Verify cluster health: kubectl get nodes
+          2. Check platform pods: kubectl get pods -A
+          3. Access services via ingress
+          4. Configure monitoring dashboards
+          5. Set up application deployments
+          
+          Useful Commands:
+          - kubectl get ingress -A
+          - helm list -A
+          - kubectl get pods -n kube-system
+          - kubectl logs -f deployment/aws-load-balancer-controller -n kube-system
+          ================================================

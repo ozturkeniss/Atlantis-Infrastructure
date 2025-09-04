@@ -1,0 +1,153 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: services
+  labels:
+    name: services
+    tier: application
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "Main namespace for all API microservices"
+    contact: "development-team@company.com"
+---
+# Individual service namespaces for better isolation (optional)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-01
+  labels:
+    name: api-01
+    tier: application
+    service: api-01
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 01 - User management"
+    contact: "team-api-01@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-02
+  labels:
+    name: api-02
+    tier: application
+    service: api-02
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 02 - Order management"
+    contact: "team-api-02@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-03
+  labels:
+    name: api-03
+    tier: application
+    service: api-03
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 03 - Product catalog"
+    contact: "team-api-03@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-04
+  labels:
+    name: api-04
+    tier: application
+    service: api-04
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 04 - Payment processing"
+    contact: "team-api-04@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-05
+  labels:
+    name: api-05
+    tier: application
+    service: api-05
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 05 - Inventory management"
+    contact: "team-api-05@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-06
+  labels:
+    name: api-06
+    tier: application
+    service: api-06
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 06 - Notification service"
+    contact: "team-api-06@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-07
+  labels:
+    name: api-07
+    tier: application
+    service: api-07
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 07 - Analytics service"
+    contact: "team-api-07@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-08
+  labels:
+    name: api-08
+    tier: application
+    service: api-08
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 08 - Search service"
+    contact: "team-api-08@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-09
+  labels:
+    name: api-09
+    tier: application
+    service: api-09
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 09 - Recommendation engine"
+    contact: "team-api-09@company.com"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-10
+  labels:
+    name: api-10
+    tier: application
+    service: api-10
+    app.kubernetes.io/managed-by: "atlas-micro"
+    app.kubernetes.io/part-of: "microservices"
+  annotations:
+    description: "API service 10 - Reporting service"
+    contact: "team-api-10@company.com"

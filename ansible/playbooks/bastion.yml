@@ -1,0 +1,88 @@
+---
+# Bastion Host Configuration Playbook
+# Configures bastion hosts with necessary tools for EKS management
+
+- name: Configure Bastion Hosts
+  hosts: bastion
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display bastion configuration info
+      debug:
+        msg: |
+          Configuring bastion host: {{ inventory_hostname }}
+          Environment: {{ environment }}
+          Cluster: {{ cluster_name }}
+
+  roles:
+    - common
+    - bastion
+
+  post_tasks:
+    - name: Verify essential tools installation
+      block:
+        - name: Check kubectl installation
+          command: kubectl version --client
+          register: kubectl_version
+          changed_when: false
+          failed_when: false
+
+        - name: Check helm installation
+          command: helm version
+          register: helm_version
+          changed_when: false
+          failed_when: false
+
+        - name: Check aws cli installation
+          command: aws --version
+          register: aws_version
+          changed_when: false
+          failed_when: false
+
+        - name: Display tool versions
+          debug:
+            msg: |
+              Tool Installation Status:
+              kubectl: {{ 'OK' if kubectl_version.rc == 0 else 'FAILED' }}
+              helm: {{ 'OK' if helm_version.rc == 0 else 'FAILED' }}
+              aws-cli: {{ 'OK' if aws_version.rc == 0 else 'FAILED' }}
+
+    - name: Create EKS access script
+      template:
+        src: templates/configure-eks-access.sh.j2
+        dest: /home/{{ ansible_user }}/configure-eks-access.sh
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      vars:
+        cluster_name: "{{ cluster_name }}"
+        region: "{{ region }}"
+
+    - name: Bastion configuration summary
+      debug:
+        msg: |
+          ================================================
+          ✅ Bastion Host Configuration Complete
+          ================================================
+          Host: {{ inventory_hostname }}
+          Environment: {{ environment }}
+          
+          Available Tools:
+          - kubectl (Kubernetes CLI)
+          - helm (Package Manager)
+          - aws (AWS CLI)
+          - eksctl (EKS CLI)
+          - argocd (GitOps CLI)
+          
+          Next Steps:
+          1. SSH to bastion: ssh -i ~/.ssh/atlas-key.pem ec2-user@{{ ansible_host }}
+          2. Configure EKS access: ./configure-eks-access.sh
+          3. Verify cluster access: kubectl get nodes
+          ================================================
+
+  handlers:
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted
